@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 4方向リモコン</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #333; font-size: 18pt; }
+        
+        /* 接続状態表示 */
+        #status { font-weight: bold; color: #ff3b30; margin-bottom: 10px; }
+
+        /* コントローラーの配置（十字キーっぽく配置） */
+        .controller-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 15px;
+            justify-content: center;
+            margin: 30px auto;
+        }
+
+        /* ボタンの基本スタイル */
+        .btn {
+            font-size: 14pt;
+            font-weight: bold;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .connect-btn { background-color: #ffcc00; color: #333; padding: 15px 30px; font-size: 14pt; }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; grid-column: 2; grid-row: 2; }
+        
+        /* ボタンの配置場所 */
+        #forward { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #backward { grid-column: 2; grid-row: 3; }
+
+        /* ボタン無効化時の見た目 */
+        button:disabled { background-color: #ccc !important; color: #888 !important; cursor: not-allowed; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime リモコン</h1>
+    <div id="status">未接続</div>
+
+    <button class="btn connect-btn" id="connect">SPIKEに接続</button>
+
+    <div class="controller-grid">
+        <button class="btn move-btn" id="forward" disabled>前進</button>
+        <button class="btn move-btn" id="left" disabled>左折</button>
+        <button class="btn stop-btn" id="stop" disabled>停止</button>
+        <button class="btn move-btn" id="right" disabled>右折</button>
+        <button class="btn move-btn" id="backward" disabled>後退</button>
+    </div>
+
+    <script>
+        const LEGO_HUB_SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123'; 
+        const LEGO_HUB_CHARACTERISTIC_UUID = '00001624-1212-efde-1523-785feabcd123';
+
+        let spikeCharacteristic = null;
+
+        // 接続処理
+        document.
