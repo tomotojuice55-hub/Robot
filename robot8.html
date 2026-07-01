@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>SPIKE Prime リモコン</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f4f8; margin: 0; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 15px; font-size: 14pt; margin: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #ff3b30; color: white; width: 80%; font-size: 16pt; }
+        .move-btn { background-color: #007aff; color: white; width: 100px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime リモコン</h1>
+    <p>iPadのBluefyアプリで試してください</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothデバイスを探す</button>
+
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn move-btn" id="stop" style="background-color:#ff3b30;">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        // SPIKE Prime公式のシリアル通信用UUID
+        const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(TX_CHARACTERISTIC_UUID);
+
+                alert('接続成功！コントロールボタンが使えます。');
+            } catch (error) {
+                alert('エラー: ' + error.message);
+            }
+        });
+
+        async function sendCommand(commandText) {
+            if (!txCharacteristic) return;
+            try {
+                // SPIKEのPythonが確実に反応する特殊な合図（\r\n\x03）を末尾に付加
+                const cmd = new TextEncoder().encode(commandText + '\r\n\x03');
+                await txCharacteristic.writeValue(cmd);
+            } catch (error) {
+                console.error('送信エラー:', error);
