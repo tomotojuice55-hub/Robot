@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 操縦Webアプリ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            font-size: 18pt;
+        }
+        /* 映像を表示するエリア */
+        #video-container {
+            width: 90%;
+            max-width: 480px;
+            height: 270px;
+            background-color: #000;
+            margin: 10px auto;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            overflow: hidden;
+        }
+        #video-stream {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* ボタンのスタイル */
+        .btn {
+            padding: 15px 30px;
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .connect-btn { background-color: #ffcc00; color: #333; }
+        .move-btn { background-color: #007aff; color: white; width: 120px; }
+        .stop-btn { background-color: #ff3b30; color: white; width: 120px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime コントロールパネル</h1>
+
+    <div id="video-container">
+        <div>【ここにiPhoneの映像が映ります】</div>
+    </div>
+
+    <button class="btn connect-btn" id="connect">① SPIKEに接続する</button>
+
+    <br><br>
+
+    <button class="btn move-btn" id="forward" disabled>前進</button>
+    <button class="btn stop-btn" id="stop" disabled>停止</button>
+
+    <script>
+        // SPIKE Prime (LEGO Hub) のBluetoothサービスUUID
+        const LEGO_HUB_SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123'; 
+        const LEGO_HUB_CHARACTERISTIC_UUID = '00001624-1212-efde-1523-785feabcd123';
+
+        let spikeCharacteristic = null;
+
+        // 接続ボタンの処理
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                // Bluetoothデバイスを探す
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'LEGO' }],
+                    optionalServices: [LEGO_HUB_SERVICE_UUID]
+                });
+
+                console.log('接続中...', device.name);
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(LEGO_HUB_SERVICE_UUID);
+                spikeCharacteristic = await service.getCharacteristic(LEGO_HUB_CHARACTERISTIC_UUID);
+
+                alert('SPIKE Prime に接続しました！');
+                // 操縦ボタンを使えるようにする
+                document.getElementById('forward').disabled = false;
+                document.getElementById('stop').disabled = false;
+            } catch (error) {
+                console.error('接続エラー:', error);
+                alert('接続に失敗しました。');
+            }
+        });
+
+        // 前進ボタンの処理
+        document.getElementById('forward').addEventListener('click', async () => {
+            if (!spikeCharacteristic) return;
+            // SPIKEに送る命令（ハブが解釈できる文字やバイト列を設定）
+            // ※SPIKE側のプログラムに合わせて内容を調整します
+            const cmd = new TextEncoder().encode('FORWARD\n');
+            await spikeCharacteristic.writeValue(cmd);
+            console.log('前進信号を送信しました');
+        });
+
+        // 停止ボタンの処理
+        document.getElementById('stop').addEventListener('click', async () => {
+            if (!spikeCharacteristic) return;
+            const cmd = new TextEncoder().encode('STOP\n');
+            await spikeCharacteristic.writeValue(cmd);
+            console.log('停止信号を送信しました');
+        });
+    </script>
+</body>
+</html>
