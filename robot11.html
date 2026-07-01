@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 4方向リモコン</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 15px; font-size: 14pt; margin: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #ff3b30; color: white; width: 80%; font-size: 16pt; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; width: 100px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime リモコン</h1>
+    <p>iPadのBluefyアプリで試してください</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothデバイスを探す</button>
+
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn move-btn" id="stop" style="background-color:#ff3b30;">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(TX_CHARACTERISTIC_UUID);
+
+                alert('接続成功！コントロールボタンが使えます。');
+            } catch (error) {
+                alert('エラー: ' + error.message);
+            }
+        });
+
+        // 文字を送る関数（ここを最終修正しました）
+        async function sendCommand(commandText) {
+            if (!txCharacteristic) return;
+            try {
+                // 最新のSPIKE（sys.stdin.readline）が「ここで1行終わり！」と
+                // 100%正しく認識できるように、一般的な改行（\n）だけでなく、
+                // Windows/通信で標準的なリターン付き改行（\r\n）にして送信します
+                const cmd = new TextEncoder().encode(commandText + '\r\n');
+                await txCharacteristic.writeValue(cmd);
+            } catch (error) {
+                console.error('送信エラー:', error);
+            }
+        }
+
+        // 各ボタンの設定
+        document.getElementById('forward').addEventListener('click', () => sendCommand('FORWARD'));
+        document.getElementById('backward').addEventListener('click', () => sendCommand('BACKWARD'));
+        document.getElementById('left').addEventListener('click', () => sendCommand('LEFT'));
+        document.getElementById('right').addEventListener('click', () => sendCommand('RIGHT'));
+        document.getElementById('stop').addEventListener('click', () => sendCommand('STOP'));
+    </script>
+</body>
+</html>
