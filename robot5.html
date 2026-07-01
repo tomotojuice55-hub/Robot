@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 4方向リモコン</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; }
+        h1 { color: #333; font-size: 18pt; }
+        .controller-grid { display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 15px; justify-content: center; margin: 30px auto; }
+        .btn { font-size: 14pt; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #ff3b30; color: white; padding: 20px 40px; font-size: 16pt; border-radius: 12px; width: 80%; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; grid-column: 2; grid-row: 2; }
+        #forward { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #backward { grid-column: 2; grid-row: 3; }
+        button:disabled { background-color: #ccc !important; color: #888 !important; cursor: not-allowed; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime リモコン</h1>
+    <p>iPadのBluefyアプリで試してください</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothデバイスを探す</button>
+
+    <div class="controller-grid">
+        <button class="btn move-btn" id="forward" disabled>前進</button>
+        <button class="btn move-btn" id="left" disabled>左折</button>
+        <button class="btn stop-btn" id="stop" disabled>停止</button>
+        <button class="btn move-btn" id="right" disabled>右折</button>
+        <button class="btn move-btn" id="backward" disabled>後退</button>
+    </div>
+
+    <script>
+        const LEGO_HUB_SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123'; 
+        const LEGO_HUB_CHARACTERISTIC_UUID = '00001624-1212-efde-1523-785feabcd123';
+
+        let spikeCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                // 最初にとにかく接続できた設定（全開放）
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        LEGO_HUB_SERVICE_UUID,
+                        '0000180a-0000-1000-8000-00805f9b34fb',
+                        '0000180f-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(LEGO_HUB_SERVICE_UUID);
+                spikeCharacteristic = await service.getCharacteristic(LEGO_HUB_CHARACTERISTIC_UUID);
+
+                alert(device.name + ' に接続しました！ボタンが使えます。');
+                
+                // ボタンを使えるようにする
+                document.querySelectorAll('.move-btn, .stop-btn').forEach(btn => btn.disabled = false);
+            } catch (error) {
+                alert('接続エラー: ' + error.message);
+            }
+        });
+
+        // 送信処理
+        async function sendCommand(commandText) {
+            if (!spikeCharacteristic) return;
+            try {
+                const cmd = new TextEncoder().encode(commandText + '\n');
+                await spikeCharacteristic.writeValue(cmd);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        document.getElementById('forward').addEventListener('click', () => sendCommand('FORWARD'));
+        document.getElementById('backward').addEventListener('click', () => sendCommand('BACKWARD'));
+        document.getElementById('left').addEventListener('click', () => sendCommand('LEFT'));
+        document.getElementById('right').addEventListener('click', () => sendCommand('RIGHT'));
+        document.getElementById('stop').addEventListener('click', () => sendCommand
