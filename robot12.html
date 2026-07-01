@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime V3 ダイレクトコントローラー</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 15px; font-size: 14pt; margin: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #34c759; color: white; width: 80%; font-size: 16pt; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; width: 100px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime V3 リモコン</h1>
+    <p>ハブのPythonプログラムは動かさず、電源を入れるだけでOKです</p>
+
+    <button class="btn connect-btn" id="connect">SPIKEハブとダイレクト接続</button>
+
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn move-btn" id="stop" style="background-color:#ff3b30;">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        // レゴ公式のLWP3（LEGO Wireless Protocol v3）の通信ID
+        const LEGO_SERVICE_UUID = '00001623-1212-efde-1623-785feabcd123';
+        const LEGO_CHARACTERISTIC_UUID = '00001624-1212-efde-1623-785feabcd123';
+        
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [LEGO_SERVICE_UUID] }]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(LEGO_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(LEGO_CHARACTERISTIC_UUID);
+
+                alert('ダイレクト接続成功！ハブのロックを突破しました。');
+            } catch (error) {
+                alert('接続エラー: ' + error.message);
+            }
+        });
+
+        // レゴの公式バイナリ命令を送信する関数
+        async function sendLegoCommand(bytes) {
+            if (!txCharacteristic) return;
+            try {
+                await txCharacteristic.writeValue(new Uint8Array(bytes));
+            } catch (error) {
+                console.error('送信エラー:', error);
+            }
+        }
+
+        // ポートA(0x00)とポートB(0x01)のモーターを直接動かす生データ命令
+        // [長さ, 0x00, 0x81, ポート, 0x11, 0x51, モード, 速度] のような構造です
+        document.getElementById('forward').addEventListener('click', () => {
+            sendLegoCommand([0x08, 0x00, 0x81, 0x00, 0x11, 0x51, 0x00, 0x32]); // ポートA 正転
+            sendLegoCommand([0x08, 0x00, 0x81, 0x01, 0x11, 0x51, 0x00, 0xCE]); // ポートB 逆転
+        });
+
+        document.getElementById('backward').addEventListener('click', () => {
+            sendLegoCommand([0x08, 0x00, 0x81, 0x00, 0x11, 0x51, 0x00, 0xCE]); // ポートA 逆転
+            sendLegoCommand([0x08, 0x00, 0x81, 0x01, 0x11, 0x51, 0x00, 0x32]); // ポートB 正転
+        });
+
+        document.getElementById('left').addEventListener('click', () => {
+            sendLegoCommand([0x08, 0x00, 0x81, 0x00, 0x11, 0x51, 0x00, 0x10]); // ポートA 低速
+            sendLegoCommand([0x08, 0x00, 0x81, 0x01, 0x11, 0x51, 0x00, 0xCE]); // ポートB 逆転
+        });
+
+        document.getElementById('right').addEventListener('click', () => {
+            sendLegoCommand([0x08, 0x00, 0x81, 0x00, 0x11, 0x51, 0x00, 0x32]); // ポートA 正転
+            sendLegoCommand([0x08, 0x00, 0x81, 0x01, 0x11, 0x51, 0x00, 0xF0]); // ポートB 低速
+        });
+
+        document.getElementById('stop').addEventListener('click', () => {
+            sendLegoCommand([0x08, 0x00, 0x81, 0x00, 0x11, 0x51, 0x00, 0x00]); // ポートA 停止
+            sendLegoCommand([0x08, 0x00, 0x81, 0x01, 0x11, 0x51, 0x00, 0x00]); // ポートB 停止
+        });
+    </script>
+</body>
+</html>
+
