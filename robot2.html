@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 最終接続テスト</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; }
+        .btn { padding: 20px 40px; font-size: 16pt; font-weight: bold; margin: 20px; border: none; border-radius: 12px; cursor: pointer; }
+        .connect-btn { background-color: #ff3b30; color: white; width: 80%; max-width: 400px; }
+        #log { width: 90%; max-width: 500px; height: 150px; margin: 20px auto; background: #333; color: #00ff00; padding: 10px; text-align: left; font-family: monospace; overflow-y: scroll; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime 接続テスト</h1>
+    <p>iPadのBluefyアプリで試してください</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothデバイスを探す</button>
+
+    <h3>デバッグログ（エラーチェック用）</h3>
+    <div id="log">ここに状態が表示されます...</div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        function printLog(msg) {
+            logDiv.innerHTML += msg + '<br>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            printLog('探しています...（ハブを青点滅させてください）');
+            try {
+                // すべてのフィルターを完全に解除し、隠れたUUIDも強制スキャンする設定
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '00001623-1212-efde-1523-785feabcd123', // SPIKEの基本サービス
+                        '0000180a-0000-1000-8000-00805f9b34fb', // デバイス情報
+                        '0000180f-0000-1000-8000-00805f9b34fb'  // バッテリー情報
+                    ]
+                });
+
+                printLog('発見しました！ 名前: ' + (device.name || '名前なしデバイス'));
+                printLog('接続を開始します...');
+
+                const server = await device.gatt.connect();
+                printLog('✅ GATTサーバーに接続成功！');
+
+                alert(device.name + ' に無事接続できました！');
+            } catch (error) {
+                printLog('❌ エラー発生: ' + error.message);
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
