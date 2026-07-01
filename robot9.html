@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 4方向リモコン</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 15px; font-size: 14pt; margin: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #ff3b30; color: white; width: 80%; font-size: 16pt; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; width: 100px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime リモコン</h1>
+    <p>iPadのBluefyアプリで試してください</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothデバイスを探す</button>
+
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn move-btn" id="stop" style="background-color:#ff3b30;">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        // 最初に成功した時と完全に同じ設定
+        const SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123';
+        
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        SERVICE_UUID,
+                        '0000180a-0000-1000-8000-00805f9b34fb',
+                        '0000180f-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+
+                const server = await device.gatt.connect();
+                // 接続できたらメインサービスを取得
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                
+                // 通信の出入り口(Characteristic)を自動で探して取得するモード
+                const characteristics = await service.getCharacteristics();
+                txCharacteristic = characteristics[0]; // 一番最初の出入り口を使う
+
+                alert('接続成功！コントロールボタンが使えます。');
+            } catch (error) {
+                alert('エラー: ' + error.message);
+            }
+        });
+
+        // 文字を送る関数
+        async function sendCommand(commandText) {
+            if (!txCharacteristic) return;
+            try {
+                const cmd = new TextEncoder().encode(commandText + '\n');
+                await txCharacteristic.writeValue(cmd);
+            } catch (error) {
+                console.error('送信エラー:', error);
+            }
+        }
+
+        // 各ボタンの命令設定
+        document.getElementById('forward').addEventListener('click', () => sendCommand('FORWARD'));
+        document.getElementById('backward').addEventListener('click', () => sendCommand('BACKWARD'));
+        document.getElementById('left').addEventListener('click', () => sendCommand('LEFT'));
+        document.getElementById('right').addEventListener('click', () => sendCommand('RIGHT'));
+        document.getElementById('stop').addEventListener('click', () => sendCommand('STOP'));
+    </script>
+</body>
+</html>
