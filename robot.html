@@ -66,7 +66,7 @@
     <button class="btn stop-btn" id="stop" disabled>停止</button>
 
     <script>
-        // SPIKE Prime (LEGO Hub) のBluetoothサービスUUID
+        // SPIKE Prime (LEGO Hub) のBluetooth識別番号(UUID)
         const LEGO_HUB_SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123'; 
         const LEGO_HUB_CHARACTERISTIC_UUID = '00001624-1212-efde-1523-785feabcd123';
 
@@ -75,44 +75,4 @@
         // 接続ボタンの処理
         document.getElementById('connect').addEventListener('click', async () => {
             try {
-                // Bluetoothデバイスを探す
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'LEGO' }],
-                    optionalServices: [LEGO_HUB_SERVICE_UUID]
-                });
-
-                console.log('接続中...', device.name);
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(LEGO_HUB_SERVICE_UUID);
-                spikeCharacteristic = await service.getCharacteristic(LEGO_HUB_CHARACTERISTIC_UUID);
-
-                alert('SPIKE Prime に接続しました！');
-                // 操縦ボタンを使えるようにする
-                document.getElementById('forward').disabled = false;
-                document.getElementById('stop').disabled = false;
-            } catch (error) {
-                console.error('接続エラー:', error);
-                alert('接続に失敗しました。');
-            }
-        });
-
-        // 前進ボタンの処理
-        document.getElementById('forward').addEventListener('click', async () => {
-            if (!spikeCharacteristic) return;
-            // SPIKEに送る命令（ハブが解釈できる文字やバイト列を設定）
-            // ※SPIKE側のプログラムに合わせて内容を調整します
-            const cmd = new TextEncoder().encode('FORWARD\n');
-            await spikeCharacteristic.writeValue(cmd);
-            console.log('前進信号を送信しました');
-        });
-
-        // 停止ボタンの処理
-        document.getElementById('stop').addEventListener('click', async () => {
-            if (!spikeCharacteristic) return;
-            const cmd = new TextEncoder().encode('STOP\n');
-            await spikeCharacteristic.writeValue(cmd);
-            console.log('停止信号を送信しました');
-        });
-    </script>
-</body>
-</html>
+                // 変更
