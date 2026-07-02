@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime 遠隔コントローラー</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; user-select: none; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 20px; font-size: 16pt; margin: 10px; border-radius: 8px; font-weight: bold; width: 120px; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime 遠隔リモコン</h1>
+    <p>Bluetoothでハブと接続した状態で押してください</p>
+
+    <button class="btn move-btn" id="forwardBtn">前進</button><br>
+    <button class="btn move-btn" id="leftBtn">左折</button>
+    <button class="btn stop-btn" id="stopBtn">停止</button>
+    <button class="btn move-btn" id="rightBtn">右折</button><br>
+    <button class="btn move-btn" id="backwardBtn">後退</button>
+
+    <script>
+        // ペアリングされたBluetoothデバイス（ハブ）に、キーボードの「キーが押された」イベントを擬似的に送る関数
+        function sendKeyEvent(keyChar, isDown) {
+            // iPadの標準機能を使って、接続中のBluetoothキーボード（ハブ）に対して
+            // JavaScriptから特定のキー（W/A/S/Dなど）が操作されたイベントを発生させます
+            const eventType = isDown ? 'keydown' : 'keyup';
+            const event = new KeyboardEvent(eventType, {
+                key: keyChar,
+                code: 'Key' + keyChar.toUpperCase(),
+                bubbles: true
+            });
+            document.dispatchEvent(event);
+            console.log(`電波送信: ${keyChar} (${eventType})`);
+        }
+
+        // 各ボタンの「押しっぱなし」と「離したとき」の動きを登録
+        setupButton('forwardBtn', 'w');   // 前進：Wキー
+        setupButton('backwardBtn', 's');  // 後退：Sキー
+        setupButton('leftBtn', 'a');      // 左折：Aキー
+        setupButton('rightBtn', 'd');     // 右折：Dキー
+        
+        // 停止ボタンはクリックしたら確実に止める信号（スペースキー）
+        document.getElementById('stopBtn').addEventListener('click', () => sendKeyEvent(' ', true));
+
+        function setupButton(buttonId, keyChar) {
+            const btn = document.getElementById(buttonId);
+            
+            // iPad（タッチ操作）用
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); sendKeyEvent(keyChar, true); });
+            btn.addEventListener('touchend', () => sendKeyEvent(keyChar, false));
+            
+            // パソコン（マウス操作）でのテスト用
+            btn.addEventListener('mousedown', () => sendKeyEvent(keyChar, true));
+            btn.addEventListener('mouseup', () => sendKeyEvent(keyChar, false));
+        }
+    </script>
+</body>
+</html>
