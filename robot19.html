@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-select=none">
+    <title>SPIKE Prime V3 遠隔コントローラー</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; -webkit-user-select: none; user-select: none; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 20px; font-size: 16pt; margin: 10px; border-radius: 8px; font-weight: bold; width: 140px; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); touch-action: manipulation; }
+        .btn:active { opacity: 0.7; transform: scale(0.98); }
+        .connect-btn { background-color: #34c759; color: white; width: 80%; font-size: 16pt; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime 遠隔リモコン</h1>
+    <p>Bluetoothでハブと接続して操作します</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothでハブと接続</button>
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn stop-btn" id="stop">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        const SERIAL_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERIAL_SERVICE_UUID]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERIAL_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(TX_CHARACTERISTIC_UUID);
+
+                // 【ここを強化！】ハブが今どんな状態であっても、強制的に初期化モード（REPL）に引きずり込む特殊コマンド
+                // Ctrl+C（強制終了）を3回、Ctrl+A（RAW REPLモード突入）を送信します
+                await sendPythonCode('\x03\x03\x03\x01');
+                await sleep(100);
+                await sendPythonCode('import motor\r\n');
+                
+                alert('接続成功！今度こそハブの準備が整いました！');
+            } catch (error) {
+                alert('接続エラー: ' + error.message);
+            }
+        });
+
+        // 待機用の補助関数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function sendPythonCode(codeText) {
+            if (!txCharacteristic) return;
+            try {
+                const encoder = new TextEncoder();
+                await txCharacteristic.writeValue(encoder.encode(codeText + '\r\n'));
+            } catch (error) {
+                console.error('送信エラー:', error);
+            }
+        }
+
+        function setupController(id, runCode) {
+            const btn = document.getElementById(id);
+            
+            btn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                sendPythonCode(runCode);
+            });
+            
+            const stopAction = (e) => {
+                e.preventDefault();
+                sendPythonCode("motor.stop('A'); motor.stop('B')");
+            };
+            btn.addEventListener('pointerup', stopAction);
+            btn.addEventListener('pointercancel', stopAction);
+        }
+
+        // 各ボタンの動き
+        setupController('forward', "motor.run_at_speed('A', 500); motor.run_at_speed('B', -500)");
+        setupController('backward', "motor.run_at_speed('A', -500); motor.run_at_speed('B', 500)");
+        setupController('left', "motor.run_at_speed('A', 100); motor.run_at_speed('B', -500)");
+        setupController('right', "motor.run_at_speed('A', 500); motor.run_at_speed('B', -100)");
+
+        document.getElementById('stop').addEventListener('click', () => {
+            sendPythonCode("motor.stop('A'); motor.stop('B')");
+        });
+    </script>
+</body>
+</html>
