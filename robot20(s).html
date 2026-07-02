@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-select=none">
+    <title>SPIKE Scratch 遠隔コントローラー</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; -webkit-user-select: none; user-select: none; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 20px; font-size: 16pt; margin: 10px; border-radius: 8px; font-weight: bold; width: 140px; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); touch-action: manipulation; }
+        .btn:active { opacity: 0.7; transform: scale(0.98); }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; }
+        .status { font-size: 12pt; color: #666; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Scratch リモコン</h1>
+    <div class="status" id="status">通信状態: スタンバイ</div>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn stop-btn" id="stop">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        // 🛠️ 【重要】ここをあなたの情報に書き換えてください！
+        const USERNAME = "scratchgamer0520"; 
+        const PROJECT_ID = "1350763844"; 
+        const VARIABLE_NAME = "move"; // Scratch側で作るクラウド変数の名前（☁ は不要）
+
+        let ws = null;
+
+        // Scratchのクラウド変数サーバーに接続する関数
+        function connectScratch() {
+            document.getElementById('status').innerText = "通信状態: 接続中...";
+            
+            // Scratch公式のクラウド変数用WebSocketサーバーに繋ぎます
+            ws = new WebSocket('wss://clouddata.scratch.mit.edu/wildcat');
+
+            ws.onopen = () => {
+                document.getElementById('status').innerText = "通信状態: 接続完了！ネット通信中";
+                // サーバーに「このプロジェクトに参加します」と伝えるおまじない
+                ws.send(JSON.stringify({ method: "handshake", user: USERNAME, project_id: PROJECT_ID }));
+            };
+
+            ws.onerror = (err) => {
+                document.getElementById('status').innerText = "通信状態: エラー発生";
+                console.error(err);
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').innerText = "通信状態: 切断されました（再接続します）";
+                setTimeout(connectScratch, 2000); // 切れたら2秒後に自動再接続
+            };
+        }
+
+        // Scratchサーバーのクラウド変数を書き換える関数
+        function sendCommand(value) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const packet = {
+                    method: "set",
+                    user: USERNAME,
+                    project_id: PROJECT_ID,
+                    name: "☁ " + VARIABLE_NAME,
+                    value: String(value)
+                };
+                ws.send(JSON.stringify(packet));
+                console.log("送った数字:", value);
+            }
+        }
+
+        // iOS用のタッチイベント登録
+        function setupController(id, runValue) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); sendCommand(runValue); });
+            btn.addEventListener('pointerup', (e) => { e.preventDefault(); sendCommand(0); }); // 指を離したら「0（停止）」
+            btn.addEventListener('pointercancel', (e) => { e.preventDefault(); sendCommand(0); });
+        }
+
+        // 各ボタンの割り当て（前進=1, 後退=2, 左折=3, 右折=4, 停止=0）
+        setupController('forward', 1);
+        setupController('backward', 2);
+        setupController('left', 3);
+        setupController('right', 4);
+
+        document.getElementById('stop').addEventListener('click', () => sendCommand(0));
+
+        // ページが開いた瞬間にScratchのサーバーと通信を開始
+        connectScratch();
+    </script>
+</body>
+</html>
