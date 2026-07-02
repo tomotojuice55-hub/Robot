@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIKE Prime V3 完全遠隔コントローラー</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f4f8; padding: 20px; margin: 0; user-select: none; }
+        h1 { color: #333; font-size: 18pt; }
+        .btn { padding: 20px; font-size: 16pt; margin: 10px; border-radius: 8px; font-weight: bold; width: 120px; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .connect-btn { background-color: #34c759; color: white; width: 80%; font-size: 16pt; max-width: 400px; }
+        .move-btn { background-color: #007aff; color: white; }
+        .stop-btn { background-color: #ff3b30; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>SPIKE Prime 遠隔リモコン</h1>
+    <p>Bluetoothでハブと接続して操作します</p>
+
+    <button class="btn connect-btn" id="connect">Bluetoothでハブと接続</button>
+    <br><br>
+
+    <button class="btn move-btn" id="forward">前進</button><br>
+    <button class="btn move-btn" id="left">左折</button>
+    <button class="btn stop-btn" id="stop">停止</button>
+    <button class="btn move-btn" id="right">右折</button><br>
+    <button class="btn move-btn" id="backward">後退</button>
+
+    <script>
+        // SPIKEハブの標準的なシリアル通信（UART）のID
+        const SERIAL_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        
+        let txCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERIAL_SERVICE_UUID]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERIAL_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(TX_CHARACTERISTIC_UUID);
+
+                // 最初におまじない（一瞬止める信号）を送ってハブを受付状態にする
+                await sendPythonCode('\x03\x03import motor\r');
+                alert('接続成功！遠隔操作が可能です。');
+            } catch (error) {
+                alert('接続エラー: ' + error.message);
+            }
+        });
+
+        // ハブに向けて、Pythonのコードをそのまま電波で送信する関数
+        async function sendPythonCode(codeText) {
+            if (!txCharacteristic) return;
+            try {
+                const encoder = new TextEncoder();
+                // コードの最後に改行（\r）をつけてハブに実行させる
+                await txCharacteristic.writeValue(encoder.encode(codeText + '\r'));
+            } catch (error) {
+                console.error('送信エラー:', error);
+            }
+        }
+
+        // ボタンを押したときに「Pythonの命令そのもの」を送り飛ばす！
+        document.getElementById('forward').addEventListener('mousedown', () => {
+            sendPythonCode("motor.run_at_speed('A', 500); motor.run_at_speed('B', -500)");
+        });
+        document.getElementById('backward').addEventListener('mousedown', () => {
+            sendPythonCode("motor.run_at_speed('A', -500); motor.run_at_speed('B', 500)");
+        });
+        document.getElementById('left').addEventListener('mousedown', () => {
+            sendPythonCode("motor.run_at_speed('A', 100); motor.run_at_speed('B', -500)");
+        });
+        document.getElementById('right').addEventListener('mousedown', () => {
+            sendPythonCode("motor.run_at_speed('A', 500); motor.run_at_speed('B', -100)");
+        });
+        
+        // 指を離したら止める（mouseupとtouchendの両方に対応）
+        const stopAction = () => sendPythonCode("motor.stop('A'); motor.stop('B')");
+        
+        ['mouseup', 'touchend'].forEach(evt => {
+            document.getElementById('forward').addEventListener(evt, stopAction);
+            document.getElementById('backward').addEventListener(evt, stopAction);
+            document.getElementById('left').addEventListener(evt, stopAction);
+            document.getElementById('right').addEventListener(evt, stopAction);
+        });
+        
+        document.getElementById('stop').addEventListener('click', stopAction);
+    </script>
+</body>
+</html>
