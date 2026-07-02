@@ -1,0 +1,57 @@
+<script>
+    // 🛠️ 【重要】ここをあなたの情報に書き換えてください！
+    const USERNAME = "scratchgamer0520"; 
+    const PROJECT_ID = "1350763844"; 
+    const VARIABLE_NAME = "move"; // Scratch側で作ったクラウド変数の名前（☁は不要）
+
+    // 通信状態の表示を更新
+    document.getElementById('status').innerText = "通信状態: APIルート開通（送信スタンバイ）";
+
+    // Scratchサーバーのクラウド変数を「切断されずに」書き換える関数
+    async function sendCommand(value) {
+        // Scratch公式のクラウド変数書き換えAPIのURL
+        const url = `https://clouddata.scratch.mit.edu/set/`;
+        
+        // 送るデータ（JSON形式）
+        const data = {
+            user: USERNAME,
+            project_id: PROJECT_ID,
+            name: "☁ " + VARIABLE_NAME,
+            value: String(value)
+        };
+
+        try {
+            // ネット経由でScratchサーバーにデータを直接ポストします
+            const response = await fetch(url, {
+                method: 'POST',
+                mode: 'cors', // 外部サイトからの通信を許可するモード
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            console.log("送信成功！送った数字:", value);
+            document.getElementById('status').innerText = `通信状態: 送信成功 (${value})`;
+        } catch (error) {
+            console.error("送信エラー:", error);
+            document.getElementById('status').innerText = "通信状態: 送信エラー";
+        }
+    }
+
+    // iOS用のタッチイベント登録（ここは前と同じです）
+    function setupController(id, runValue) {
+        const btn = document.getElementById(id);
+        btn.addEventListener('pointerdown', (e) => { e.preventDefault(); sendCommand(runValue); });
+        btn.addEventListener('pointerup', (e) => { e.preventDefault(); sendCommand(0); }); // 指を離したら「0（停止）」
+        btn.addEventListener('pointercancel', (e) => { e.preventDefault(); sendCommand(0); });
+    }
+
+    // 各ボタンの割り当て（前進=1, 後退=2, 左折=3, 右折=4）
+    setupController('forward', 1);
+    setupController('backward', 2);
+    setupController('left', 3);
+    setupController('right', 4);
+
+    document.getElementById('stop').addEventListener('click', () => sendCommand(0));
+</script>
