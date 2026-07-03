@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPIKE 3 BLE コクピット</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #1e1e24; margin: 0; padding: 0; overflow: hidden; color: white; }
+        .container { position: relative; width: 100vw; height: 100vh; background-color: #1e1e24; }
+        #robot-video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1; }
+        #connect-btn { position: absolute; top: 20px; left: 20px; background: rgba(0, 122, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 11pt; z-index: 10; backdrop-filter: blur(5px); cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #connect-btn.connected { background: rgba(52, 199, 89, 0.8); }
+        .overlay-panel { position: absolute; bottom: 30px; right: 20px; z-index: 10; }
+        .controller-grid { display: grid; grid-template-columns: repeat(3, 85px); grid-template-rows: repeat(3, 85px); gap: 12px; justify-content: center; background: rgba(255, 255, 255, 0.07); padding: 15px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn { font-size: 13pt; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.1s ease; }
+        .move-btn { background-color: rgba(0, 122, 255, 0.35); color: rgba(255, 255, 255, 0.9); text-shadow: 0 0 5px rgba(0,122,255,1); }
+        .move-btn:active { background-color: rgba(0, 122, 255, 0.7); transform: scale(0.92); }
+        .stop-btn { background-color: rgba(255, 59, 48, 0.4); color: white; grid-column: 2; grid-row: 2; font-size: 10pt; border: 1px solid rgba(255, 59, 48, 0.5); text-shadow: 0 0 5px rgba(255,59,48,1); }
+        .stop-btn:active { background-color: rgba(255, 59, 48, 0.8); transform: scale(0.92); }
+        #forward { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #backward { grid-column: 2; grid-row: 3; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button id="connect-btn" onclick="connectBluetooth()">🔗 タップしてSPIKEと接続</button>
+        <iframe id="robot-video" src="https://vdo.ninja/?view=LRGfYki&autoplay&transparent&clean" allow="autoplay; camera"></iframe>
+
+        <div class="overlay-panel">
+            <div class="controller-grid">
+                <button class="btn move-btn" id="forward" ontouchstart="sendCmd('forward')" onmousedown="sendCmd('forward')">前進</button>
+                <button class="btn move-btn" id="left" ontouchstart="sendCmd('left')" onmousedown="sendCmd('left')">左折</button>
+                <button class="btn stop-btn" id="stop" ontouchstart="sendCmd('stop')" onmousedown="sendCmd('stop')">停止</button>
+                <button class="btn move-btn" id="right" ontouchstart="sendCmd('right')" onmousedown="sendCmd('right')">右折</button>
+                <button class="btn move-btn" id="backward" ontouchstart="sendCmd('backward')" onmousedown="sendCmd('backward')">後退</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let txCharacteristic;
+        
+        // 🟢 SPIKE 3 (LWP3 / BLE規格) 専用のUUID
+        const LEGO_HUB_SERVICE_UUID = "00001623-1212-efde-1623-785feabcd123";
+        const LEGO_HUB_CHARACTERISTIC_UUID = "00001624-1212-efde-1623-785feabcd123";
+
+        async function connectBluetooth() {
+            const btn = document.getElementById('connect-btn');
+            try {
+                // SPIKE 3のBLE電波を狙い撃ちでスキャン
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [LEGO_HUB_SERVICE_UUID] }]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(LEGO_HUB_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(LEGO_HUB_CHARACTERISTIC_UUID);
+                
+                btn.textContent = "🟢 接続完了！";
+                btn.classList.add('connected');
+                alert("SPIKE 3 ハブとBLEで接続しました！");
+            } catch (error) {
+                console.error("接続エラー:", error);
+                alert("Bluetooth接続に失敗しました。");
+            }
+        }
+
+        async function sendCmd(direction) {
+            if (!txCharacteristic) return; 
+            try {
+                const encoder = new TextEncoder();
+                // \n 付きでコマンドを送信
+                const data = encoder.encode(direction + "\n");
+                await txCharacteristic.writeValue(data);
+                console.log("送信成功:", direction);
+            } catch (error) {
+                console.error("送信エラー:", error);
+            }
+        }
+
+        window.addEventListener('mouseup', () => sendCmd('stop'));
+        window.addEventListener('touchend', () => sendCmd('stop'));
+    </script>
+</body>
+</html>
