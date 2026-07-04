@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPIKE Prime 復活リモコンコクピット</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #1e1e24; margin: 0; padding: 0; overflow: hidden; color: white; }
+        .container { position: relative; width: 100vw; height: 100vh; background-color: #1e1e24; }
+        #robot-video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1; }
+        #connect { position: absolute; top: 20px; left: 20px; background: rgba(0, 122, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 11pt; z-index: 10; backdrop-filter: blur(5px); cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #connect.connected { background: rgba(52, 199, 89, 0.8); }
+        .overlay-panel { position: absolute; bottom: 30px; right: 20px; z-index: 10; }
+        .controller-grid { display: grid; grid-template-columns: repeat(3, 85px); grid-template-rows: repeat(3, 85px); gap: 12px; justify-content: center; background: rgba(255, 255, 255, 0.07); padding: 15px; border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn { font-size: 13pt; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.1s ease; }
+        .move-btn { background-color: rgba(0, 122, 255, 0.35); color: rgba(255, 255, 255, 0.9); text-shadow: 0 0 5px rgba(0,122,255,1); }
+        .move-btn:active { background-color: rgba(0, 122, 255, 0.7); transform: scale(0.92); }
+        .stop-btn { background-color: rgba(255, 59, 48, 0.4); color: white; grid-column: 2; grid-row: 2; font-size: 10pt; border: 1px solid rgba(255, 59, 48, 0.5); text-shadow: 0 0 5px rgba(255,59,48,1); }
+        .stop-btn:active { background-color: rgba(255, 59, 48, 0.8); transform: scale(0.92); }
+        #forward { grid-column: 2; grid-row: 1; }
+        #left { grid-column: 1; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+        #backward { grid-column: 2; grid-row: 3; }
+        button:disabled { background-color: rgba(120, 120, 120, 0.2) !important; color: #888 !important; cursor: not-allowed; text-shadow: none !important; border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button id="connect">🔗 Bluetoothデバイスを探す</button>
+        <iframe id="robot-video" src="https://vdo.ninja/?view=LRGfYki&autoplay&transparent&clean" allow="autoplay; camera"></iframe>
+
+        <div class="overlay-panel">
+            <div class="controller-grid">
+                <button class="btn move-btn" id="forward" disabled>前進</button>
+                <button class="btn move-btn" id="left" disabled>左折</button>
+                <button class="btn stop-btn" id="stop" disabled>停止</button>
+                <button class="btn move-btn" id="right" disabled>右折</button>
+                <button class="btn move-btn" id="backward" disabled>後退</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🟢 あなたが持っていた「本物の部屋番号（1523）」に修正しました！
+        const LEGO_HUB_SERVICE_UUID = '00001623-1212-efde-1523-785feabcd123'; 
+        const LEGO_HUB_CHARACTERISTIC_UUID = '00001624-1212-efde-1523-785feabcd123';
+
+        let spikeCharacteristic = null;
+
+        document.getElementById('connect').addEventListener('click', async () => {
+            const btn = document.getElementById('connect');
+            try {
+                // 成功実績のある全開放スキャン
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        LEGO_HUB_SERVICE_UUID,
+                        '0000180a-0000-1000-8000-00805f9b34fb',
+                        '0000180f-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(LEGO_HUB_SERVICE_UUID);
+                spikeCharacteristic = await service.getCharacteristic(LEGO_HUB_CHARACTERISTIC_UUID);
+
+                btn.textContent = "🟢 接続完了！";
+                btn.classList.add('connected');
+                alert(device.name + ' に接続しました！');
+                
+                // ボタンのロックを解除
+                document.querySelectorAll('.move-btn, .stop-btn').forEach(b => b.disabled = false);
+            } catch (error) {
+                alert('接続エラー: ' + error.message);
+            }
+        });
+
+        // 送信処理（ハブ側のPythonに送る）
+        async function sendCommand(commandText) {
+            if (!spikeCharacteristic) return;
+            try {
+                const cmd = new TextEncoder().encode(commandText + '\n');
+                await spikeCharacteristic.writeValue(cmd);
+                console.log("送信:", commandText);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // 各ボタンのイベント（タップとクリック両対応）
+        const actions = [
+            { id: 'forward', cmd: 'FORWARD' },
+            { id: 'backward', cmd: 'BACKWARD' },
+            { id: 'left', cmd: 'LEFT' },
+            { id: 'right', cmd: 'RIGHT' },
+            { id: 'stop', cmd: 'STOP' }
+        ];
+
+        actions.forEach(act => {
+            const el = document.getElementById(act.id);
+            el.addEventListener('mousedown', () => sendCommand(act.cmd));
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); sendCommand(act.cmd); });
+        });
+
+        // 指を離した時は自動でストップ命令を送る
+        const stopAction = () => sendCommand('STOP');
+        window.addEventListener('mouseup', stopAction);
+        window.addEventListener('touchend', stopAction);
+    </script>
+</body>
+</html>
